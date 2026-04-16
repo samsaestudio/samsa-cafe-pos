@@ -690,6 +690,12 @@ const App = (() => {
     const name = document.getElementById('input-customer-name').value.trim();
     if (!name || !_paymentMethod) return;
 
+    // ── SINCRÓNICO: iniciar OAuth ANTES de cualquier await ───────────────────
+    // requestAccessToken() usa window.open() internamente. Los navegadores solo
+    // permiten window.open() dentro de un gesto de usuario activo. Si lo llamamos
+    // después de un await, el popup queda bloqueado silenciosamente.
+    VentasModule.startAuth();
+
     const btn = document.getElementById('btn-confirm-order');
     btn.disabled    = true;
     btn.textContent = 'GUARDANDO…';

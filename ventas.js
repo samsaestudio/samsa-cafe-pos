@@ -15,7 +15,7 @@ const VentasModule = (() => {
 
   // ── Construir filas para VENTAS ───────────────────────────────────────────
   // Una fila por ítem. Cols:
-  // A:# ORDEN  B:FECHA  C:HORA  D:CLIENTE  E:CATEGORÍA  F:PRODUCTO
+  // A:# ORDEN  B:FECHA  C:HORA  D:CLIENTE  E:FAMILIA  F:PRODUCTO
   // G:VARIANTE  H:TEMPERATURA  I:TAMAÑO  J:EXTRAS  K:PRECIO UNITARIO
   // L:PRECIO EXTRAS  M:SUBTOTAL ÍTEM  N:MÉTODO PAGO  O:TOTAL ORDEN
 
@@ -28,7 +28,7 @@ const VentasModule = (() => {
       fecha,
       hora,
       order.cliente,
-      item.categoria,
+      item.familia || item.categoria || '',
       item.nombre,
       item.variante,
       item.temp        || '',
@@ -43,27 +43,64 @@ const VentasModule = (() => {
   }
 
   // ── OAuth2 token ──────────────────────────────────────────────────────────
-  // Usa Google Identity Services (GIS) cargado en el HTML si se configura OAUTH_CLIENT_ID
-  function _getToken() {
-    return new Promise((resolve, reject) => {
-      if (!CONFIG.OAUTH_CLIENT_ID) {
-        reject(new Error('OAUTH_CLIENT_ID no configurado. Ventas solo guardadas localmente.'));
-        return;
-      }
-      if (typeof google === 'undefined' || !google.accounts) {
-        reject(new Error('Google Identity Services no cargado.'));
-        return;
-      }
-      const client = google.accounts.oauth2.initTokenClient({
-        client_id: CONFIG.OAUTH_CLIENT_ID,
-        scope: 'https://www.googleapis.com/auth/spreadsheets',
-        callback: (resp) => {
-          if (resp.error) reject(new Error(resp.error));
-          else resolve(resp.access_token);
-        },
-      });
-      client.requestAccessToken({ prompt: '' });
+  // IMPORTANTE: el popup de Google solo puede abrirse desde un gesto del usuario.
+  // Por eso separamos startAuth() (síncrono, llamado en el clic) de _getToken()
+  // (async, llamado después cuando ya tenemos la promesa en vuelo).
+
+  let _tokenClient  = null; // cliente GIS reutilizable
+  let _cachedToken  = null; // { value, expiresAt } — válido 55 min
+  let _tokenPromise = null; // promesa en vuelo o resuelta
+
+  function _ensureClient() {
+    if (_tokenClient) return true;
+    if (!CONFIG.OAUTH_CLIENT_ID) return false;
+    if (typeof google === 'undefined' || !google.accounts) return false;
+    _tokenClient = google.accounts.oauth2.initTokenClient({
+      client_id:      CONFIG.OAUTH_CLIENT_ID,
+      scope:          'https://www.googleapis.com/auth/spreadsheets',
+      callback:       () => {}, // se reemplaza en startAuth()
+      error_callback: () => {},
     });
+    return true;
+  }
+
+  // Llamar SINCRÓNICAMENTE dentro del handler del clic, antes de cualquier await.
+  // Si el token en caché sigue vigente, resuelve sin popup.
+  // Si no, abre el popup de Google en contexto de gesto de usuario.
+  function startAuth() {
+    const now = Date.now();
+
+    // Token en caché y válido (con 1 min de margen)
+    if (_cachedToken && _cachedToken.expiresAt > now + 60_000) {
+      return (_tokenPromise = Promise.resolve(_cachedToken.value));
+    }
+
+    if (!_ensureClient()) {
+      return (_tokenPromise = Promise.reject(new Error(
+        CONFIG.OAUTH_CLIENT_ID
+          ? 'Google Identity Services aún no cargado. Reintenta en unos segundos.'
+          : 'OAUTH_CLIENT_ID no configurado. Venta guardada localmente.'
+      )));
+    }
+
+    return (_tokenPromise = new Promise((resolve, reject) => {
+      _tokenClient.callback = (resp) => {
+        if (resp.error) return reject(new Error(resp.error));
+        _cachedToken = { value: resp.access_token, expiresAt: now + 55 * 60 * 1000 };
+        resolve(resp.access_token);
+      };
+      _tokenClient.error_callback = ({ type }) =>
+        reject(new Error(type || 'oauth_error'));
+
+      // requestAccessToken() abre el popup sincrónicamente si es necesario.
+      // Al llegar aquí seguimos dentro del gesto de usuario (clic).
+      _tokenClient.requestAccessToken();
+    }));
+  }
+
+  function _getToken() {
+    return _tokenPromise
+      || Promise.reject(new Error('startAuth() debe llamarse antes de guardar.'));
   }
 
   // ── Append a Google Sheets ────────────────────────────────────────────────
@@ -163,6 +200,6 @@ const VentasModule = (() => {
     _flushQueue().catch(() => {});
   });
 
-  return { save };
+  return { save, startAuth };
 
 })();

@@ -1,0 +1,9 @@
+config.js
+.env
+.DS_Store
+Thumbs.db
+node_modules/
+.claude/
+*.cdr
+*.pdf
+menu_cafe.xlsx

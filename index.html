@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>Samsa Café — POS</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,600;0,700;1,400;1,700&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ═══════════════════════════════════════════
+       PANTALLA PRINCIPAL
+  ═══════════════════════════════════════════ -->
+  <div id="screen-main" class="screen active">
+
+    <!-- ZONA SUPERIOR: Menú -->
+    <div class="menu-zone">
+
+      <!-- Header -->
+      <header class="app-header">
+        <div class="logo">
+          <img src="samsa cafe logo.png" alt="samsa café" class="logo-img" />
+        </div>
+        <div id="clock" class="clock"></div>
+      </header>
+
+      <!-- Estado de carga -->
+      <div id="menu-loading" class="menu-loading" aria-live="polite">
+        <div class="spinner"></div>
+        <span>Cargando menú…</span>
+      </div>
+
+      <!-- Error de menú -->
+      <div id="menu-error" class="menu-error hidden" role="alert">
+        <span>⚠ No se pudo cargar el menú. Revisa tu conexión.</span>
+        <button onclick="MenuModule.load()">Reintentar</button>
+      </div>
+
+      <!-- ESTADO 1 — Selector de familias (círculos 2×2) -->
+      <div id="family-selector" class="family-selector hidden" aria-label="Categorías del menú"></div>
+
+      <!-- ESTADO 2 — Vista de productos de una familia -->
+      <div id="product-view" class="product-view hidden">
+
+        <!-- Barra superior: nombre de familia + botón volver -->
+        <div id="family-bar" class="family-bar">
+          <span id="family-bar-name" class="family-bar-name"></span>
+          <button class="btn-back-menu" onclick="App.showFamilyMenu()" aria-label="Volver al menú">
+            <div class="back-menu-icon">
+              <span></span><span></span><span></span><span></span>
+            </div>
+            <span class="back-menu-label">MENÚ</span>
+          </button>
+        </div>
+
+        <!-- Subtítulo -->
+        <p class="section-label">SELECCIONA TU PRODUCTO</p>
+
+        <!-- Carrusel de productos -->
+        <div id="products-carousel" class="products-carousel" aria-label="Productos"></div>
+
+      </div><!-- /product-view -->
+
+    </div><!-- /menu-zone -->
+
+    <!-- ZONA INFERIOR: Carrito -->
+    <div class="cart-zone">
+      <div class="cart-header">
+        <h2 class="cart-title">ORDEN DE COMPRA</h2>
+        <span id="cart-total" class="cart-total">$0</span>
+      </div>
+
+      <!-- Estado vacío del carrito (hermano de cart-items, nunca se desconecta) -->
+      <div id="cart-empty" class="cart-empty">
+        <span class="cart-empty-text">PIDE AQUÍ</span>
+      </div>
+
+      <!-- Lista de ítems (oculto cuando el carrito está vacío) -->
+      <div id="cart-items" class="cart-items hidden" aria-label="Ítems en el carrito"></div>
+
+      <!-- Botón finalizar (oculto cuando el carrito está vacío) -->
+      <button id="btn-checkout" class="btn-checkout hidden" onclick="App.openCheckout()">
+        FINALIZAR COMPRA
+      </button>
+    </div><!-- /cart-zone -->
+
+  </div><!-- /screen-main -->
+
+
+  <!-- ═══════════════════════════════════════════
+       POP-UP DE PRODUCTO
+  ═══════════════════════════════════════════ -->
+  <div id="product-popup" class="popup-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="popup-product-name">
+
+    <div class="popup-card" id="popup-card">
+
+      <button class="popup-close" onclick="App.closeProductPopup()" aria-label="Cerrar">✕</button>
+
+      <!-- Imagen -->
+      <div class="popup-image-wrap">
+        <img id="popup-product-img" src="" alt="" class="popup-product-img" />
+        <div id="popup-product-img-placeholder" class="popup-img-placeholder"></div>
+      </div>
+
+      <!-- Info -->
+      <div class="popup-body">
+        <div id="popup-category-badge" class="popup-category-badge"></div>
+        <h2 id="popup-product-name" class="popup-product-name"></h2>
+        <p id="popup-product-desc" class="popup-product-desc"></p>
+
+        <!-- Opciones dinámicas -->
+        <div id="popup-options" class="popup-options"></div>
+
+        <!-- Precio en tiempo real + botón -->
+        <div class="popup-footer">
+          <div class="popup-price-wrap">
+            <span class="popup-price-label">Total</span>
+            <span id="popup-price" class="popup-price">$0</span>
+          </div>
+          <button id="btn-confirm-product" class="btn-confirm-product" disabled onclick="App.confirmProduct()">
+            CONFIRMAR PRODUCTO
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div><!-- /product-popup -->
+
+
+  <!-- ═══════════════════════════════════════════
+       BOTTOM SHEET — FINALIZAR ORDEN
+  ═══════════════════════════════════════════ -->
+  <div id="checkout-overlay" class="checkout-overlay hidden" aria-modal="true" role="dialog" aria-labelledby="checkout-title">
+
+    <div id="checkout-sheet" class="checkout-sheet">
+
+      <div class="checkout-drag-handle"></div>
+
+      <div class="checkout-scroll">
+
+        <h2 id="checkout-title" class="checkout-title">FINALIZAR ORDEN</h2>
+
+        <!-- Resumen de ítems -->
+        <div id="checkout-items-list" class="checkout-items-list"></div>
+
+        <!-- Total -->
+        <div class="checkout-total-row">
+          <span>TOTAL</span>
+          <span id="checkout-total-display" class="checkout-total-amount">$0</span>
+        </div>
+
+        <hr class="checkout-divider" />
+
+        <!-- Nombre del cliente -->
+        <label class="checkout-field-label" for="input-customer-name">ORDEN PARA</label>
+        <input
+          id="input-customer-name"
+          class="checkout-input"
+          type="text"
+          placeholder="Nombre del cliente"
+          autocomplete="off"
+          oninput="App.updateCheckoutValidity()"
+        />
+
+        <!-- Método de pago -->
+        <p class="checkout-field-label">MÉTODO DE PAGO</p>
+        <div class="payment-methods">
+          <button class="payment-btn" data-method="EFECTIVO" onclick="App.selectPayment(this)">
+            <span class="payment-icon">💵</span> EFECTIVO
+          </button>
+          <button class="payment-btn" data-method="TARJETA" onclick="App.selectPayment(this)">
+            <span class="payment-icon">💳</span> TARJETA
+          </button>
+        </div>
+
+        <!-- Confirmar -->
+        <button id="btn-confirm-order" class="btn-confirm-order" disabled onclick="App.confirmOrder()">
+          CONFIRMAR ORDEN
+        </button>
+
+        <button class="btn-cancel-checkout" onclick="App.closeCheckout()">Cancelar</button>
+
+      </div>
+    </div>
+  </div><!-- /checkout-overlay -->
+
+
+  <!-- ═══════════════════════════════════════════
+       POP-UP CONFIRMACIÓN
+  ═══════════════════════════════════════════ -->
+  <div id="confirmation-popup" class="popup-overlay hidden" role="dialog" aria-modal="true">
+    <div class="confirmation-card">
+      <div class="confirmation-icon">✦</div>
+      <h2 class="confirmation-title">¡CONFIRMADO!</h2>
+      <p id="confirmation-folio" class="confirmation-folio"></p>
+      <p id="confirmation-customer" class="confirmation-customer"></p>
+      <div class="confirmation-actions">
+        <button class="btn-download-ticket" onclick="App.downloadTicket()">
+          ⬇ DESCARGAR TICKET
+        </button>
+        <button class="btn-new-order" onclick="App.newOrder()">
+          NUEVA ORDEN
+        </button>
+      </div>
+    </div>
+  </div><!-- /confirmation-popup -->
+
+
+  <!-- ═══════════════════════════════════════════
+       TOAST de notificaciones
+  ═══════════════════════════════════════════ -->
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
+
+
+  <!-- Scripts -->
+  <script src="config.js"></script>
+  <script src="menu.js"></script>
+  <script src="ventas.js"></script>
+  <script src="ticket.js"></script>
+  <script src="app.js"></script>
+  <!-- jsPDF desde CDN -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+
+</body>
+</html>

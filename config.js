@@ -4,7 +4,7 @@
 const CONFIG = {
   SHEET_ID: '19SmPH3-xRrumrHPy0aq3KeMrSdavGQQ6yI9hYMND4Rg',
   API_KEY:  'AIzaSyCbEFRCPPcPrDjj50WtwoESctCm-0WH8vA',
-  OAUTH_CLIENT_ID: '', // Llenar con tu OAuth Client ID para habilitar escritura
+ OAUTH_CLIENT_ID: '355370199040-v7selsh2ac8csgsuimvvrtaa2lpjlgob.apps.googleusercontent.com',
   SHEET_NAME_MENU:   'MENÚ',
   SHEET_NAME_EXTRAS: 'EXTRAS',
   SHEET_NAME_VENTAS: 'VENTAS',
